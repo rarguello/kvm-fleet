@@ -60,7 +60,7 @@
     label: "{{ item.name }}"
   when:
     - (item.state | default('present')) == 'present'
-    - item.url | default('')
+    - (item.url | default('')) | length > 0
 
 - name: Check manually-provided images (no url) are actually there
   ansible.builtin.stat:
@@ -95,4 +95,4 @@
     label: "{{ item.name }}"
   when:
     - (item.state | default('present')) == 'absent'
-    - item.filename | default('')
+    - (item.filename | default('')) | length > 0
