@@ -11,5 +11,4 @@ Before submitting a change:
 ## Releasing
 
 1. Bump `version` in `galaxy.yml` and add an entry to `CHANGELOG.md`.
-2. `git tag vX.Y.Z && git push origin vX.Y.Z` — the `Release` workflow builds the collection tarball and creates the GitHub Release automatically.
-3. Publish to Galaxy by hand: `ansible-galaxy collection publish rarguello-kvm_fleet-X.Y.Z.tar.gz`.
+2. `git tag vX.Y.Z && git push origin vX.Y.Z` — the `Release` workflow builds the collection tarball, publishes it to Ansible Galaxy (using the `GALAXY_API_KEY` repo secret), and creates the GitHub Release with the tarball attached.
