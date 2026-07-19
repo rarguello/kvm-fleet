@@ -18,6 +18,9 @@ None beyond what `kvm_hypervisor` installs.
 ```yaml
 kvm_image_dir: /var/lib/libvirt/images
 
+# kvm_known_images already ships with rocky9, rocky10, centos-stream9 and
+# centos-stream10 (see defaults/main.yml for the exact pinned URLs). You
+# only need to declare it yourself to override/extend, e.g.:
 kvm_known_images:
   rocky9:
     url: https://dl.rockylinux.org/pub/rocky/9/images/x86_64/Rocky-9-GenericCloud-Base-9.8-20260525.0.x86_64.qcow2

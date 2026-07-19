@@ -1,6 +1,8 @@
 ---
 kvm_image_dir: /var/lib/libvirt/images
-kvm_known_images: {}
+# kvm_known_images comes from the kvm_images role's defaults — not
+# redeclared here, so its catalog isn't shadowed by role-default
+# precedence when kvm_vm loads after it in the play.
 kvm_images: []
 kvm_networks: []
 kvm_vms: []

@@ -33,6 +33,10 @@ kvm_hypervisor_packages:
 kvm_hypervisor_install_cockpit: false
 kvm_hypervisor_cockpit_packages: [cockpit, cockpit-machines]
 
+# libguestfs (virt-cat, guestfish, virt-df, ...) for offline disk inspection.
+kvm_hypervisor_install_libguestfs: false
+kvm_hypervisor_libguestfs_packages: [libguestfs-tools-c]
+
 # EL9/EL10 ship modular libvirt daemons by default. Set false for EL8 and
 # earlier (monolithic libvirtd).
 kvm_hypervisor_modular_daemons: true

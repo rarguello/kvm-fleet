@@ -23,6 +23,14 @@
             state: started
             enabled: true
 
+    - name: Install libguestfs tools (optional)
+      ansible.builtin.package:
+        name: "{{ kvm_hypervisor_libguestfs_packages }}"
+        state: present
+      when:
+        - kvm_hypervisor_install_libguestfs
+        - kvm_hypervisor_manage_packages
+
     - name: Enable libvirtd (monolithic)
       ansible.builtin.systemd:
         name: "{{ item }}"

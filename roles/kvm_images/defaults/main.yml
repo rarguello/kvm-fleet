@@ -1,4 +1,53 @@
 ---
 kvm_image_dir: /var/lib/libvirt/images
-kvm_known_images: {}
+
+# Known base image catalog. Reference these names from kvm_images without
+# repeating url/os_variant/device, or override/extend per-inventory.
+#
+# URLs are pinned to a specific dated build, not a "latest" symlink: qcow2
+# overlays reference the base image by path, so if the file behind that
+# path silently changes content (as a "latest" symlink does on every new
+# release) every VM built from it becomes unreproducible. Bump these
+# manually when you want a newer base — check the mirror's CHECKSUM file
+# for the sha256. CentOS Stream is a rolling release, so its dated builds
+# get pruned from the mirror after a while; expect to bump it more often
+# than Rocky's point releases.
+#
+# RHEL images require authenticating on the Red Hat customer portal, so
+# there's no default entry for RHEL here — declare it yourself in
+# kvm_images with 'filename' pointing at a qcow2 you copied there by hand.
+#
+# 'device' is the guest NIC name cloud-init writes the static network
+# config for. Verified: RHEL9 and Rocky9 cloud images both use legacy
+# 'eth0' naming; RHEL10 uses predictable 'enp1s0' naming. CentOS Stream and
+# Rocky10 below follow the same generation-based pattern but are not yet
+# verified — check with 'ip -brief addr show' on first boot and override
+# per-image or per-VM if wrong (a mismatch here silently falls back to
+# whatever ships in the image, usually DHCP).
+kvm_known_images:
+  rocky9:
+    url: https://dl.rockylinux.org/pub/rocky/9/images/x86_64/Rocky-9-GenericCloud-Base-9.8-20260525.0.x86_64.qcow2
+    checksum: sha256:92c206cc6f790c61583247eefe87890f8828420662c17cacf247cec78ab4eec8
+    os_variant: rocky9
+    device: eth0
+    cloud_user: rocky
+  rocky10:
+    url: https://dl.rockylinux.org/pub/rocky/10/images/x86_64/Rocky-10-GenericCloud-Base-10.2-20260525.0.x86_64.qcow2
+    checksum: sha256:9fc9e9ff16888bb68ac39b0392e25c9c92684d50c85f1cce6ab549363bbc4b48
+    os_variant: rocky10
+    device: enp1s0
+    cloud_user: rocky
+  centos-stream9:
+    url: https://cloud.centos.org/centos/9-stream/x86_64/images/CentOS-Stream-GenericCloud-x86_64-9-20260714.1.x86_64.qcow2
+    checksum: sha256:f3c37dab11b0d4addbddc5a77d4e8906167bcc0cb2c3e0ed9199af6050617bc7
+    os_variant: centos-stream9
+    device: eth0
+    cloud_user: cloud-user
+  centos-stream10:
+    url: https://cloud.centos.org/centos/10-stream/x86_64/images/CentOS-Stream-GenericCloud-x86_64-10-20260713.0.x86_64.qcow2
+    checksum: sha256:207921a3e8d0a1516e27b1ccafef56a13a90b36840c23358c6c9f81209284d97
+    os_variant: centos-stream10
+    device: enp1s0
+    cloud_user: cloud-user
+
 kvm_images: []
