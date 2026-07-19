@@ -11,88 +11,91 @@
 #     <kvm_image_dir>/<filename> (e.g. a RHEL KVM Guest Image copied there
 #     by hand, since it requires Red Hat portal auth to fetch).
 
-- name: Resolve kvm_images against the known catalog
-  ansible.builtin.set_fact:
-    kvm_images_resolved: >-
-      {{ (kvm_images_resolved | default([]))
-         + [(kvm_known_images[item.name] | default({})) | combine(item)] }}
-  loop: "{{ kvm_images }}"
-  loop_control:
-    label: "{{ item.name }}"
+- name: Root-privileged tasks
+  become: true
+  block:
+    - name: Resolve kvm_images against the known catalog
+      ansible.builtin.set_fact:
+        kvm_images_resolved: >-
+          {{ (kvm_images_resolved | default([]))
+             + [(kvm_known_images[item.name] | default({})) | combine(item)] }}
+      loop: "{{ kvm_images }}"
+      loop_control:
+        label: "{{ item.name }}"
 
-- name: Fail if a present image has no 'url' and no 'filename'
-  ansible.builtin.fail:
-    msg: >-
-      Image '{{ item.name }}' has neither 'url' nor 'filename', and is not
-      in kvm_known_images. Set 'url' to download it, or 'filename' if you
-      copy it into {{ kvm_image_dir }} by hand (e.g. RHEL).
-  loop: "{{ kvm_images_resolved }}"
-  loop_control:
-    label: "{{ item.name }}"
-  when:
-    - (item.state | default('present')) == 'present'
-    - not (item.filename | default(item.url | default('') | basename))
+    - name: Fail if a present image has no 'url' and no 'filename'
+      ansible.builtin.fail:
+        msg: >-
+          Image '{{ item.name }}' has neither 'url' nor 'filename', and is not
+          in kvm_known_images. Set 'url' to download it, or 'filename' if you
+          copy it into {{ kvm_image_dir }} by hand (e.g. RHEL).
+      loop: "{{ kvm_images_resolved }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when:
+        - (item.state | default('present')) == 'present'
+        - not (item.filename | default(item.url | default('') | basename))
 
-- name: Compute the on-disk filename for each image
-  ansible.builtin.set_fact:
-    _kvm_images_with_filename: >-
-      {{ (_kvm_images_with_filename | default([]))
-         + [item | combine({'filename': item.filename | default(item.url | default('') | basename)})] }}
-  loop: "{{ kvm_images_resolved }}"
-  loop_control:
-    label: "{{ item.name }}"
+    - name: Compute the on-disk filename for each image
+      ansible.builtin.set_fact:
+        _kvm_images_with_filename: >-
+          {{ (_kvm_images_with_filename | default([]))
+             + [item | combine({'filename': item.filename | default(item.url | default('') | basename)})] }}
+      loop: "{{ kvm_images_resolved }}"
+      loop_control:
+        label: "{{ item.name }}"
 
-- name: Use the filename-augmented image list from here on
-  ansible.builtin.set_fact:
-    kvm_images_resolved: "{{ _kvm_images_with_filename }}"
+    - name: Use the filename-augmented image list from here on
+      ansible.builtin.set_fact:
+        kvm_images_resolved: "{{ _kvm_images_with_filename }}"
 
-- name: Download base images that declare a url
-  ansible.builtin.get_url:
-    url: "{{ item.url }}"
-    dest: "{{ kvm_image_dir }}/{{ item.filename }}"
-    checksum: "{{ item.checksum | default(omit) }}"
-    owner: qemu
-    group: qemu
-    mode: "0644"
-    force: false
-  loop: "{{ kvm_images_resolved }}"
-  loop_control:
-    label: "{{ item.name }}"
-  when:
-    - (item.state | default('present')) == 'present'
-    - (item.url | default('')) | length > 0
+    - name: Download base images that declare a url
+      ansible.builtin.get_url:
+        url: "{{ item.url }}"
+        dest: "{{ kvm_image_dir }}/{{ item.filename }}"
+        checksum: "{{ item.checksum | default(omit) }}"
+        owner: qemu
+        group: qemu
+        mode: "0644"
+        force: false
+      loop: "{{ kvm_images_resolved }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when:
+        - (item.state | default('present')) == 'present'
+        - (item.url | default('')) | length > 0
 
-- name: Check manually-provided images (no url) are actually there
-  ansible.builtin.stat:
-    path: "{{ kvm_image_dir }}/{{ item.filename }}"
-  register: _kvm_manual_image
-  loop: "{{ kvm_images_resolved }}"
-  loop_control:
-    label: "{{ item.name }}"
-  when:
-    - (item.state | default('present')) == 'present'
-    - not (item.url | default(''))
+    - name: Check manually-provided images (no url) are actually there
+      ansible.builtin.stat:
+        path: "{{ kvm_image_dir }}/{{ item.filename }}"
+      register: _kvm_manual_image
+      loop: "{{ kvm_images_resolved }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when:
+        - (item.state | default('present')) == 'present'
+        - not (item.url | default(''))
 
-- name: Fail if a manually-provided image is missing
-  ansible.builtin.fail:
-    msg: >-
-      Image '{{ item.item.name }}' has no 'url' (manual placement expected)
-      but {{ kvm_image_dir }}/{{ item.item.filename }} does not exist. Copy
-      it there by hand.
-  loop: "{{ _kvm_manual_image.results | default([]) }}"
-  loop_control:
-    label: "{{ item.item.name }}"
-  when:
-    - item.stat is defined
-    - not item.stat.exists
+    - name: Fail if a manually-provided image is missing
+      ansible.builtin.fail:
+        msg: >-
+          Image '{{ item.item.name }}' has no 'url' (manual placement expected)
+          but {{ kvm_image_dir }}/{{ item.item.filename }} does not exist. Copy
+          it there by hand.
+      loop: "{{ _kvm_manual_image.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+      when:
+        - item.stat is defined
+        - not item.stat.exists
 
-- name: Remove images declared as absent
-  ansible.builtin.file:
-    path: "{{ kvm_image_dir }}/{{ item.filename }}"
-    state: absent
-  loop: "{{ kvm_images_resolved }}"
-  loop_control:
-    label: "{{ item.name }}"
-  when:
-    - (item.state | default('present')) == 'absent'
-    - (item.filename | default('')) | length > 0
+    - name: Remove images declared as absent
+      ansible.builtin.file:
+        path: "{{ kvm_image_dir }}/{{ item.filename }}"
+        state: absent
+      loop: "{{ kvm_images_resolved }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when:
+        - (item.state | default('present')) == 'absent'
+        - (item.filename | default('')) | length > 0

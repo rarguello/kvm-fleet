@@ -1,122 +1,125 @@
 ---
-- name: Install virtualization packages
-  ansible.builtin.package:
-    name: "{{ kvm_hypervisor_packages }}"
-    state: present
-  when: kvm_hypervisor_manage_packages
-
-- name: Cockpit + cockpit-machines (optional)
-  when: kvm_hypervisor_install_cockpit
+- name: Root-privileged tasks
+  become: true
   block:
-    - name: Install Cockpit packages
+    - name: Install virtualization packages
       ansible.builtin.package:
-        name: "{{ kvm_hypervisor_cockpit_packages }}"
+        name: "{{ kvm_hypervisor_packages }}"
         state: present
       when: kvm_hypervisor_manage_packages
 
-    - name: Enable cockpit.socket
+    - name: Cockpit + cockpit-machines (optional)
+      when: kvm_hypervisor_install_cockpit
+      block:
+        - name: Install Cockpit packages
+          ansible.builtin.package:
+            name: "{{ kvm_hypervisor_cockpit_packages }}"
+            state: present
+          when: kvm_hypervisor_manage_packages
+
+        - name: Enable cockpit.socket
+          ansible.builtin.systemd:
+            name: cockpit.socket
+            state: started
+            enabled: true
+
+    - name: Enable libvirtd (monolithic)
       ansible.builtin.systemd:
-        name: cockpit.socket
+        name: "{{ item }}"
         state: started
         enabled: true
+      loop: "{{ kvm_hypervisor_monolithic_services }}"
+      when: not kvm_hypervisor_modular_daemons
 
-- name: Enable libvirtd (monolithic)
-  ansible.builtin.systemd:
-    name: "{{ item }}"
-    state: started
-    enabled: true
-  loop: "{{ kvm_hypervisor_monolithic_services }}"
-  when: not kvm_hypervisor_modular_daemons
+    - name: Enable modular libvirt daemons
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: true
+      loop: "{{ kvm_hypervisor_modular_services }}"
+      when: kvm_hypervisor_modular_daemons
 
-- name: Enable modular libvirt daemons
-  ansible.builtin.systemd:
-    name: "{{ item }}"
-    state: started
-    enabled: true
-  loop: "{{ kvm_hypervisor_modular_services }}"
-  when: kvm_hypervisor_modular_daemons
-
-- name: Run virt-host-validate
-  ansible.builtin.command: virt-host-validate qemu
-  register: _kvm_host_validate
-  changed_when: false
-  failed_when: false
-
-- name: Show virt-host-validate result
-  ansible.builtin.debug:
-    var: _kvm_host_validate.stdout_lines
-
-- name: Fail if virt-host-validate reported a FAIL
-  ansible.builtin.fail:
-    msg: >-
-      virt-host-validate found problems on {{ inventory_hostname }}.
-      Set kvm_hypervisor_require_preflight_pass: false per host to disable this check.
-  when:
-    - kvm_hypervisor_require_preflight_pass
-    - _kvm_host_validate.rc != 0
-
-- name: Nested virtualization
-  when: kvm_hypervisor_nested_virt
-  block:
-    - name: Detect CPU vendor
-      ansible.builtin.command: grep -m1 -o -E 'GenuineIntel|AuthenticAMD' /proc/cpuinfo
-      register: _kvm_cpu_vendor
-      changed_when: false
-
-    - name: Determine the matching kvm module
-      ansible.builtin.set_fact:
-        _kvm_nested_module: "{{ 'kvm_intel' if _kvm_cpu_vendor.stdout == 'GenuineIntel' else 'kvm_amd' }}"
-
-    - name: Set nested=1 in modprobe.d
-      ansible.builtin.copy:
-        dest: /etc/modprobe.d/kvm-nested.conf
-        content: "options {{ _kvm_nested_module }} nested=1\n"
-        mode: "0644"
-
-    - name: Current nested state
-      ansible.builtin.command: "cat /sys/module/{{ _kvm_nested_module }}/parameters/nested"
-      register: _kvm_nested_current
+    - name: Run virt-host-validate
+      ansible.builtin.command: virt-host-validate qemu
+      register: _kvm_host_validate
       changed_when: false
       failed_when: false
 
-    - name: Reload the module (fails if in use — expected)
-      ansible.builtin.command: "modprobe -r {{ _kvm_nested_module }}"
-      register: _kvm_nested_reload
-      failed_when: false
-      changed_when: _kvm_nested_reload.rc == 0
-      when: _kvm_nested_current.stdout not in ['Y', '1']
-
-    - name: Reload with nested=1
-      ansible.builtin.command: "modprobe {{ _kvm_nested_module }}"
-      changed_when: true
-      when:
-        - _kvm_nested_reload is defined
-        - _kvm_nested_reload.rc is defined
-        - _kvm_nested_reload.rc == 0
-
-    - name: Warn if nested is pending until next reboot
+    - name: Show virt-host-validate result
       ansible.builtin.debug:
+        var: _kvm_host_validate.stdout_lines
+
+    - name: Fail if virt-host-validate reported a FAIL
+      ansible.builtin.fail:
         msg: >-
-          nested=1 is set in /etc/modprobe.d/kvm-nested.conf, but
-          {{ _kvm_nested_module }} is still in use — takes effect on the
-          hypervisor's next reboot.
+          virt-host-validate found problems on {{ inventory_hostname }}.
+          Set kvm_hypervisor_require_preflight_pass: false per host to disable this check.
       when:
-        - _kvm_nested_current.stdout not in ['Y', '1']
-        - _kvm_nested_reload is defined
-        - _kvm_nested_reload.rc is defined
-        - _kvm_nested_reload.rc != 0
+        - kvm_hypervisor_require_preflight_pass
+        - _kvm_host_validate.rc != 0
 
-- name: Image directory
-  ansible.builtin.file:
-    path: "{{ kvm_image_dir }}"
-    state: directory
-    mode: "0711"
-    owner: root
-    group: root
+    - name: Nested virtualization
+      when: kvm_hypervisor_nested_virt
+      block:
+        - name: Detect CPU vendor
+          ansible.builtin.command: grep -m1 -o -E 'GenuineIntel|AuthenticAMD' /proc/cpuinfo
+          register: _kvm_cpu_vendor
+          changed_when: false
 
-- name: Image storage pool
-  community.libvirt.virt_pool:
-    name: "{{ kvm_pool_name }}"
-    state: active
-    autostart: true
-    xml: "{{ lookup('template', 'pool.xml.j2') }}"
+        - name: Determine the matching kvm module
+          ansible.builtin.set_fact:
+            _kvm_nested_module: "{{ 'kvm_intel' if _kvm_cpu_vendor.stdout == 'GenuineIntel' else 'kvm_amd' }}"
+
+        - name: Set nested=1 in modprobe.d
+          ansible.builtin.copy:
+            dest: /etc/modprobe.d/kvm-nested.conf
+            content: "options {{ _kvm_nested_module }} nested=1\n"
+            mode: "0644"
+
+        - name: Current nested state
+          ansible.builtin.command: "cat /sys/module/{{ _kvm_nested_module }}/parameters/nested"
+          register: _kvm_nested_current
+          changed_when: false
+          failed_when: false
+
+        - name: Reload the module (fails if in use — expected)
+          ansible.builtin.command: "modprobe -r {{ _kvm_nested_module }}"
+          register: _kvm_nested_reload
+          failed_when: false
+          changed_when: _kvm_nested_reload.rc == 0
+          when: _kvm_nested_current.stdout not in ['Y', '1']
+
+        - name: Reload with nested=1
+          ansible.builtin.command: "modprobe {{ _kvm_nested_module }}"
+          changed_when: true
+          when:
+            - _kvm_nested_reload is defined
+            - _kvm_nested_reload.rc is defined
+            - _kvm_nested_reload.rc == 0
+
+        - name: Warn if nested is pending until next reboot
+          ansible.builtin.debug:
+            msg: >-
+              nested=1 is set in /etc/modprobe.d/kvm-nested.conf, but
+              {{ _kvm_nested_module }} is still in use — takes effect on the
+              hypervisor's next reboot.
+          when:
+            - _kvm_nested_current.stdout not in ['Y', '1']
+            - _kvm_nested_reload is defined
+            - _kvm_nested_reload.rc is defined
+            - _kvm_nested_reload.rc != 0
+
+    - name: Image directory
+      ansible.builtin.file:
+        path: "{{ kvm_image_dir }}"
+        state: directory
+        mode: "0711"
+        owner: root
+        group: root
+
+    - name: Image storage pool
+      community.libvirt.virt_pool:
+        name: "{{ kvm_pool_name }}"
+        state: active
+        autostart: true
+        xml: "{{ lookup('template', 'pool.xml.j2') }}"
