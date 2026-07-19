@@ -42,9 +42,7 @@
       - dns-host
       - --xml
       - >-
-        <host ip='{{ _stale_dns[0] }}'><hostname>{{ vm_host.name }}</hostname>
-        {%- if net.domain is defined %}<hostname>{{ vm_host.name }}.{{ net.domain }}</hostname>{% endif -%}
-        </host>
+        <host ip='{{ _stale_dns[0] }}'><hostname>{{ vm_host.name }}</hostname>{%- if net.domain is defined %}<hostname>{{ vm_host.name }}.{{ net.domain }}</hostname>{% endif -%} </host>
       - --live
       - --config
   when: _stale_dns is not none

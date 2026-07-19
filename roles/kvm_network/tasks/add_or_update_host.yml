@@ -78,9 +78,7 @@
       - dns-host
       - --xml
       - >-
-        <host ip='{{ vm_host.ip }}'><hostname>{{ vm_host.name }}</hostname>
-        {%- if net.domain is defined %}<hostname>{{ vm_host.name }}.{{ net.domain }}</hostname>{% endif -%}
-        </host>
+        <host ip='{{ vm_host.ip }}'><hostname>{{ vm_host.name }}</hostname>{%- if net.domain is defined %}<hostname>{{ vm_host.name }}.{{ net.domain }}</hostname>{% endif -%} </host>
       - --live
       - --config
   register: _dns_update

@@ -10,13 +10,11 @@
 - name: Provision the fleet
   hosts: hypervisors
   gather_facts: false
-  collections:
-    - rarguello.kvm_fleet
   roles:
-    - kvm_hypervisor
-    - kvm_images
-    - kvm_network
-    - kvm_vm
+    - rarguello.kvm_fleet.kvm_hypervisor
+    - rarguello.kvm_fleet.kvm_images
+    - rarguello.kvm_fleet.kvm_network
+    - rarguello.kvm_fleet.kvm_vm
 
   tasks:
     - name: Register present VMs for the next play

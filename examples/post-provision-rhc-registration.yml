@@ -9,8 +9,6 @@
 - name: Provision the VM
   hosts: hypervisors
   gather_facts: false
-  collections:
-    - rarguello.kvm_fleet
   vars:
     kvm_images:
       - name: rhel9
@@ -39,10 +37,10 @@
         vcpus: 2
         disks: ["50G"]
   roles:
-    - kvm_hypervisor
-    - kvm_images
-    - kvm_network
-    - kvm_vm
+    - rarguello.kvm_fleet.kvm_hypervisor
+    - rarguello.kvm_fleet.kvm_images
+    - rarguello.kvm_fleet.kvm_network
+    - rarguello.kvm_fleet.kvm_vm
 
   tasks:
     - name: Register it for the next play

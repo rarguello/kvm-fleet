@@ -9,11 +9,16 @@ Declarative VM lifecycle: creates VMs with `virt-install` + cloud-init (NoCloud,
 - **`state: absent`** — VM is force-stopped, undefined, and its disk files removed (read from `virsh domblklist`, not guessed from current vars).
 - **Already exists:** never recreated or resized. If declared `memory_mb`/`vcpus` no longer match, a warning is printed; state and autostart are still reconciled.
 - **`mac`** is optional — if unset, libvirt/virt-install assigns one. If set, it must start with `52:54` (the QEMU/KVM locally-administered OUI).
+- **`gateway`/`dns_nameservers`** default to the network's own `gateway` (libvirt's dnsmasq answers DNS there) — override per-VM for a network whose default route or resolver isn't the network's `.1`.
 - **Access**: `cloud_user_password` is per-VM only — there's no fleet-wide default, so one leaked password can't unlock every VM. The ssh key (per-VM `ssh_public_key_file`, or the `kvm_ssh_public_key_file` default) is optional too. At least one of the two is required, or creation fails before touching anything.
 
 ## Requirements
 
 `community.libvirt` collection. A `kvm_images` entry matching `image` and a `kvm_networks` entry matching `network` must already be declared (usually processed by those two roles earlier in the same play).
+
+## Dependencies
+
+None (no role dependencies via `meta/main.yml`) — `kvm_images`/`kvm_network` must run first in your playbook, this role doesn't pull them in automatically.
 
 ## Role Variables
 
@@ -36,6 +41,8 @@ kvm_vms:
     ip: 192.168.100.10
     mac: "52:54:00:aa:bb:cc"        # optional
     device: eth0                     # optional, overrides the image's default
+    gateway: 192.168.100.1            # optional, overrides the network's gateway
+    dns_nameservers: [192.168.100.1]   # optional, overrides the network's gateway
     memory_mb: 2048
     vcpus: 2
     disks: ["20G"]                     # first entry is the OS disk (overlay);

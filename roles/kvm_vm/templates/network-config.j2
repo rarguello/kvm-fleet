@@ -6,6 +6,8 @@ network:
       subnets:
         - type: static
           address: {{ vm.ip }}/{{ _kvm_vm_network.cidr.split('/')[1] }}
-          gateway: {{ _kvm_vm_network.gateway }}
+          gateway: {{ vm.gateway | default(_kvm_vm_network.gateway) }}
           dns_nameservers:
-            - {{ _kvm_vm_network.gateway }}
+{% for ns in vm.dns_nameservers | default([_kvm_vm_network.gateway]) %}
+            - {{ ns }}
+{% endfor %}

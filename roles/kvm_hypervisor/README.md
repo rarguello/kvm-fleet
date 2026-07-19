@@ -8,6 +8,10 @@ Idempotent and cheap to re-run — day-to-day VM changes should skip it entirely
 
 EL9/EL10 family host (RHEL, Rocky Linux, AlmaLinux, CentOS Stream) reachable over SSH with sudo.
 
+## Dependencies
+
+None.
+
 ## Role Variables
 
 ```yaml

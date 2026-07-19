@@ -29,7 +29,7 @@ jobs:
         run: yamllint -c .yamllint.yml roles/ playbooks/ inventory/ examples/ meta/ galaxy.yml
 
       - name: ansible-lint
-        run: ansible-lint roles/ playbooks/
+        run: ansible-lint roles/ playbooks/ examples/
 
       - name: ansible-playbook --syntax-check
         run: ansible-playbook --syntax-check -i inventory/hosts.ini playbooks/site.yml

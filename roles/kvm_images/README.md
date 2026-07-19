@@ -13,6 +13,10 @@ URLs in `kvm_known_images` are pinned to a specific dated build, never a `latest
 
 None beyond what `kvm_hypervisor` installs.
 
+## Dependencies
+
+None (no role dependencies via `meta/main.yml`). Run `kvm_hypervisor` first in your playbook — this role doesn't pull it in automatically.
+
 ## Role Variables
 
 ```yaml

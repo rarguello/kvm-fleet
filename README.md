@@ -1,6 +1,7 @@
 # KVM Fleet
 
 [![CI](https://github.com/rarguello/kvm-fleet/actions/workflows/ci.yml/badge.svg)](https://github.com/rarguello/kvm-fleet/actions/workflows/ci.yml)
+[![Ansible Galaxy](https://img.shields.io/badge/ansible--galaxy-rarguello.kvm__fleet-blue)](https://galaxy.ansible.com/ui/repo/published/rarguello/kvm_fleet/)
 
 Declarative management of a KVM/libvirt hypervisor fleet with Ansible. Hypervisors, networks, base images, and VMs are all data — lists with `state: present` or `state: absent` — reconciled by four focused roles.
 
@@ -23,8 +24,14 @@ Everything is declared per-hypervisor in inventory `host_vars`. Running the play
 ## Installation
 
 ```bash
-ansible-galaxy collection install git+https://github.com/rarguello/kvm-fleet.git
+ansible-galaxy collection install rarguello.kvm_fleet
 ansible-galaxy collection install -r requirements.yml   # community.libvirt
+```
+
+To track `main` instead of the latest release:
+
+```bash
+ansible-galaxy collection install git+https://github.com/rarguello/kvm-fleet.git
 ```
 
 ## Quickstart
@@ -87,21 +94,18 @@ The `inventory/` in this repo is a generic example only — your real fleet's in
 ```yaml
 # your-repo/collections/requirements.yml
 collections:
-  - name: https://github.com/rarguello/kvm-fleet.git
-    type: git
-    version: main
+  - name: rarguello.kvm_fleet
+    version: ">=0.1.0"
 ```
 
 ```yaml
 # your-repo/playbooks/site.yml
 - hosts: hypervisors
-  collections:
-    - rarguello.kvm_fleet
   roles:
-    - kvm_hypervisor
-    - kvm_images
-    - kvm_network
-    - kvm_vm
+    - rarguello.kvm_fleet.kvm_hypervisor
+    - rarguello.kvm_fleet.kvm_images
+    - rarguello.kvm_fleet.kvm_network
+    - rarguello.kvm_fleet.kvm_vm
 ```
 
 ## Roles

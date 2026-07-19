@@ -14,6 +14,10 @@ DHCP reservations require the VM to declare `mac`; DNS entries work from `ip` al
 
 `community.libvirt` collection, `python3-libvirt` on the managed host (installed by `kvm_hypervisor`).
 
+## Dependencies
+
+None (no role dependencies via `meta/main.yml`).
+
 ## Role Variables
 
 ```yaml
