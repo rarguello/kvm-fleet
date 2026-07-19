@@ -39,6 +39,12 @@ kvm_network_recreate: []   # network names authorized to be destroyed + redefine
 
 ## Example
 
+OpenShift UPI-style network: `api`/`api-int` as plain DNS aliases, `*.apps` as a
+wildcard CNAME onto `api` (so both resolve through the same load balancer IP —
+verified live, including the wildcard). `dns_aliases`/`dnsmasq_options` are
+creation-time only; changing them on an existing network needs
+`kvm_network_recreate`, see above.
+
 ```yaml
 kvm_networks:
   - name: ocp4
@@ -53,5 +59,7 @@ kvm_networks:
       - ip: 192.168.150.50
         hostnames: [api, api-int]
     dnsmasq_options:
-      - "address=/.apps.ocp4.example.internal/192.168.150.51"
+      - "cname=*.apps.ocp4.example.internal,api.ocp4.example.internal"
+      - "auth-zone=ocp4.example.internal"
+      - "auth-server=ocp4.example.internal,*"
 ```

@@ -1,0 +1,56 @@
+# Example host_vars for a hypervisor running an OpenShift UPI (user-
+# provisioned infra) cluster, using libvirt's own DNS as the cluster's
+# internal DNS: api/api-int as plain aliases, *.apps as a wildcard CNAME
+# onto api. Verified live, including wildcard resolution
+# (dig console.apps.ocp4.example.internal -> resolves through api).
+#
+# api/api-int point at .50 here on the assumption something at that
+# address (a load balancer VM, or haproxy running on the hypervisor
+# itself) is fronting the control plane — adjust to your topology.
+---
+kvm_hypervisor_bootstrap: true
+
+kvm_networks:
+  - name: ocp4
+    state: present
+    mode: nat
+    cidr: 192.168.150.0/24
+    gateway: 192.168.150.1
+    dhcp_start: 192.168.150.100
+    dhcp_end: 192.168.150.200
+    domain: ocp4.example.internal
+    autostart: true
+    dns_aliases:
+      - ip: 192.168.150.50
+        hostnames: [api, api-int]
+    dnsmasq_options:
+      - "cname=*.apps.ocp4.example.internal,api.ocp4.example.internal"
+      - "auth-zone=ocp4.example.internal"
+      - "auth-server=ocp4.example.internal,*"
+
+kvm_images:
+  - name: rhel9
+    filename: rhel-9.8-x86_64-kvm.qcow2   # copied by hand, see kvm_images README
+    os_variant: rhel9.8
+    device: eth0
+    state: present
+
+kvm_vms:
+  - name: bootstrap
+    state: present
+    image: rhel9
+    network: ocp4
+    ip: 192.168.150.10
+    memory_mb: 8192
+    vcpus: 4
+    disks: ["50G"]
+  - name: master1
+    state: present
+    autostart: true
+    image: rhel9
+    network: ocp4
+    ip: 192.168.150.11
+    memory_mb: 16384
+    vcpus: 4
+    disks: ["50G"]
+  # master2, master3, worker1, ... follow the same shape.

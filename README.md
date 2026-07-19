@@ -76,6 +76,8 @@ ansible-playbook playbooks/site.yml --tags vms
 
 Other tags: `hypervisor`, `images`, `networks`.
 
+More worked examples in [`examples/`](examples/) — e.g. an OpenShift UPI network with `api`/`api-int`/`*.apps` DNS.
+
 ## Using this from your own inventory repo
 
 The `inventory/` in this repo is a generic example only — your real fleet's inventory (real hostnames, IPs, vaulted secrets) belongs in a separate, private repo that consumes this collection:
@@ -113,6 +115,7 @@ Each role documents its own variables in full:
 ## Known limitations
 
 - **No live resize.** If an existing VM's `memory_mb`/`vcpus` no longer match what's declared, `kvm_vm` warns but does not apply the change. Recreate (`state: absent` then `present`) or resize manually.
+- **OS disk must be at least as large as the base image's virtual size.** `qemu-img` silently truncates a smaller overlay — no error — which cuts off whatever partition sits at the end (usually root) and leaves the guest unable to boot. `kvm_vm` checks this and fails loudly before creating anything.
 - **Network base-attribute changes require opt-in.** Changing an existing network's `mode`/`cidr`/`dhcp_start`/`dhcp_end`/`domain`/`dns_aliases`/`dnsmasq_options` after creation needs the network's name added to `kvm_network_recreate` — recreating a network briefly disrupts every VM on it, so it's never automatic. Per-VM DHCP/DNS reservations (adding/removing a VM) *are* reconciled live, no opt-in needed.
 - **Guest NIC device name.** `cloud-init` writes the static network config for a specific device name (`eth0` or `enp1s0` depending on the image). A mismatch silently falls back to DHCP. Verified defaults are documented in `kvm_known_images`; check with `ip -brief addr show` on first boot if a VM doesn't come up on its declared IP.
 - **RHEL images** require Red Hat portal authentication and can't be fetched by URL. Set `filename` instead of `url` on the `kvm_images` entry and copy the qcow2 into place by hand.
