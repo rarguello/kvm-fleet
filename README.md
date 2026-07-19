@@ -76,7 +76,7 @@ ansible-playbook playbooks/site.yml --tags vms
 
 Other tags: `hypervisor`, `images`, `networks`.
 
-More worked examples in [`examples/`](examples/) — e.g. an OpenShift UPI network with `api`/`api-int`/`*.apps` DNS.
+More worked examples in [`examples/`](examples/) — e.g. an OpenShift UPI network with `api`/`api-int`/`*.apps` DNS, or handing a freshly-provisioned VM off to another role (freeipa, a Satellite installer, ...) over SSH.
 
 ## Using this from your own inventory repo
 

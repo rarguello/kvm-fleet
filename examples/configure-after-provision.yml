@@ -1,0 +1,47 @@
+# Provision VMs with kvm_vm, then hand them off to whatever configuration
+# role you already have (freeipa, satellite-installer, ...) in a second
+# play — no need to teach kvm_vm anything about IDM or Satellite.
+#
+# The VMs live on the hypervisor's own libvirt network, which is usually
+# NAT and not routable from the Ansible controller. The bridge is SSH
+# ProxyJump through the hypervisor that created them, using the same ssh
+# key kvm_vm already put in the VM via cloud-init.
+---
+- name: Provision the fleet
+  hosts: hypervisors
+  gather_facts: false
+  collections:
+    - rarguello.kvm_fleet
+  roles:
+    - kvm_hypervisor
+    - kvm_images
+    - kvm_network
+    - kvm_vm
+
+  tasks:
+    - name: Register present VMs for the next play
+      ansible.builtin.add_host:
+        name: "{{ item.name }}"
+        groups: freshly_provisioned
+        ansible_host: "{{ item.ip }}"
+        ansible_user: "{{ item.cloud_user | default('cloud-user') }}"
+        ansible_ssh_common_args: >-
+          -o ProxyJump={{ hostvars[inventory_hostname].ansible_user }}@{{ hostvars[inventory_hostname].ansible_host }}
+      loop: "{{ kvm_vms | selectattr('state', 'ne', 'absent') | list }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+- name: Configure freshly provisioned VMs
+  hosts: freshly_provisioned
+  gather_facts: true
+  become: true
+  # Point at whatever role turns a bare VM into an IDM server, a
+  # Satellite, ... — this play only needs to reach it over SSH, which the
+  # kvm_vm-managed cloud-init key already set up.
+  # roles:
+  #   - your_freeipa_role
+  #   - your_satellite_installer_role
+  tasks:
+    - name: Confirm reachability (replace with your real roles above)
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }} reachable at {{ ansible_host }} — ready to configure."
