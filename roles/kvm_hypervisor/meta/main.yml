@@ -3,7 +3,7 @@ galaxy_info:
   role_name: kvm_hypervisor
   author: Ricardo Arguello
   description: Bootstraps a bare-metal or nested host as a KVM hypervisor.
-  license: Apache-2.0
+  license: MIT
   min_ansible_version: "2.15"
   platforms:
     - name: EL

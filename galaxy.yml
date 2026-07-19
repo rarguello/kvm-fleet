@@ -7,7 +7,7 @@ authors:
   - Ricardo Arguello
 description: Declarative management of a KVM/libvirt hypervisor fleet — hypervisors, networks, base images, and VMs as data.
 license:
-  - Apache-2.0
+  - MIT
 dependencies:
   community.libvirt: ">=1.2.0"
 tags:

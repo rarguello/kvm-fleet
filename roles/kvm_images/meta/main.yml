@@ -3,7 +3,7 @@ galaxy_info:
   role_name: kvm_images
   author: Ricardo Arguello
   description: Downloads and maintains a base qcow2 image catalog on a KVM hypervisor.
-  license: Apache-2.0
+  license: MIT
   min_ansible_version: "2.15"
   platforms:
     - name: EL

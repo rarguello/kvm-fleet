@@ -1,4 +1,4 @@
-# kvm-fleet
+# KVM Fleet
 
 [![CI](https://github.com/rarguello/kvm-fleet/actions/workflows/ci.yml/badge.svg)](https://github.com/rarguello/kvm-fleet/actions/workflows/ci.yml)
 
@@ -128,4 +128,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). [CHANGELOG.md](CHANGELOG.md) tracks rele
 
 ## License
 
-Apache-2.0
+MIT

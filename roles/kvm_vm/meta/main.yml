@@ -3,7 +3,7 @@ galaxy_info:
   role_name: kvm_vm
   author: Ricardo Arguello
   description: Declarative VM lifecycle via virt-install and cloud-init.
-  license: Apache-2.0
+  license: MIT
   min_ansible_version: "2.15"
   platforms:
     - name: EL
