@@ -18,7 +18,7 @@
 - name: "{{ vm.name }}: create OS disk (overlay on the base image)"
   ansible.builtin.command: >-
     qemu-img create -f qcow2 -F qcow2
-    -b {{ kvm_image_dir }}/{{ vm.image }}.qcow2
+    -b {{ kvm_image_dir }}/{{ _kvm_vm_image_filename }}
     {{ _kvm_vm_os_disk }}
     {{ _kvm_vm_disks[0] }}
   args:
