@@ -1,0 +1,143 @@
+---
+# Manages ONE network (net = one kvm_networks entry). Included in a loop
+# from main.yml.
+#
+# community.libvirt.virt_net: 'state: present' defines from xml only if the
+# network doesn't exist yet — if it already exists, the xml is NOT reapplied
+# (verified empirically). 'state: active' never defines from xml, only
+# starts something already defined. Hence the two-step order below.
+
+- name: "{{ net.name }}: check if already defined"
+  ansible.builtin.command: "virsh net-info {{ net.name }}"
+  register: _kvm_net_info
+  changed_when: false
+  failed_when: false
+
+- name: "{{ net.name }}: destroy (state=absent)"
+  when: (net.state | default('present')) == 'absent'
+  block:
+    - name: "{{ net.name }}: deactivate"
+      community.libvirt.virt_net:
+        name: "{{ net.name }}"
+        state: inactive
+      when: _kvm_net_info.rc == 0
+
+    - name: "{{ net.name }}: undefine"
+      community.libvirt.virt_net:
+        name: "{{ net.name }}"
+        command: undefine
+      when: _kvm_net_info.rc == 0
+
+- name: "{{ net.name }}: create from scratch"
+  when:
+    - (net.state | default('present')) == 'present'
+    - _kvm_net_info.rc != 0
+  block:
+    - name: "{{ net.name }}: define, with all kvm_vms reservations already included"
+      community.libvirt.virt_net:
+        name: "{{ net.name }}"
+        state: present
+        xml: "{{ lookup('template', 'network.xml.j2') }}"
+
+    - name: "{{ net.name }}: activate"
+      community.libvirt.virt_net:
+        name: "{{ net.name }}"
+        state: active
+        autostart: "{{ net.autostart | default(true) }}"
+
+- name: "{{ net.name }}: recreate from scratch (authorized in kvm_network_recreate)"
+  when:
+    - (net.state | default('present')) == 'present'
+    - _kvm_net_info.rc == 0
+    - net.name in (kvm_network_recreate | default([]))
+  block:
+    - name: "{{ net.name }}: warn — recreating disrupts connected VMs"
+      ansible.builtin.debug:
+        msg: >-
+          Recreating network '{{ net.name }}' from scratch because it is in
+          kvm_network_recreate — this briefly disrupts connectivity for any
+          VM already running on it.
+
+    - name: "{{ net.name }}: deactivate to recreate"
+      community.libvirt.virt_net:
+        name: "{{ net.name }}"
+        state: inactive
+
+    - name: "{{ net.name }}: undefine to recreate"
+      community.libvirt.virt_net:
+        name: "{{ net.name }}"
+        command: undefine
+
+    - name: "{{ net.name }}: redefine"
+      community.libvirt.virt_net:
+        name: "{{ net.name }}"
+        state: present
+        xml: "{{ lookup('template', 'network.xml.j2') }}"
+
+    - name: "{{ net.name }}: reactivate"
+      community.libvirt.virt_net:
+        name: "{{ net.name }}"
+        state: active
+        autostart: "{{ net.autostart | default(true) }}"
+
+- name: "{{ net.name }}: reconcile live (already existed, not recreating)"
+  when:
+    - (net.state | default('present')) == 'present'
+    - _kvm_net_info.rc == 0
+    - net.name not in (kvm_network_recreate | default([]))
+  block:
+    - name: "{{ net.name }}: ensure it is active with the declared autostart"
+      community.libvirt.virt_net:
+        name: "{{ net.name }}"
+        state: active
+        autostart: "{{ net.autostart | default(true) }}"
+
+    - name: "{{ net.name }}: read current persistent config"
+      ansible.builtin.command: "virsh net-dumpxml --inactive {{ net.name }}"
+      register: _kvm_net_current_xml
+      changed_when: false
+
+    - name: "{{ net.name }}: initialize reconciliation lists"
+      ansible.builtin.set_fact:
+        _kvm_net_desired_hosts: "{{ net.hosts | default([]) }}"
+        _kvm_net_stale_hosts: []
+
+    - name: "{{ net.name }}: add this network's present VMs to desired hosts"
+      ansible.builtin.set_fact:
+        _kvm_net_desired_hosts: >-
+          {{ _kvm_net_desired_hosts + [
+            ({'name': item.name, 'ip': item.ip, 'mac': item.mac} if item.mac is defined else {'name': item.name, 'ip': item.ip})
+          ] }}
+      loop: "{{ kvm_vms | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when:
+        - item.network is defined
+        - item.network == net.name
+        - item.ip is defined
+        - (item.state | default('present')) != 'absent'
+
+    - name: "{{ net.name }}: mark this network's absent VMs for reservation removal"
+      ansible.builtin.set_fact:
+        _kvm_net_stale_hosts: "{{ _kvm_net_stale_hosts + [{'name': item.name}] }}"
+      loop: "{{ kvm_vms | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when:
+        - item.network is defined
+        - item.network == net.name
+        - (item.state | default('present')) == 'absent'
+
+    - name: "{{ net.name }}: add/update desired DHCP+DNS reservations"
+      ansible.builtin.include_tasks: add_or_update_host.yml
+      loop: "{{ _kvm_net_desired_hosts }}"
+      loop_control:
+        loop_var: vm_host
+        label: "{{ vm_host.name }}"
+
+    - name: "{{ net.name }}: remove reservations for destroyed VMs"
+      ansible.builtin.include_tasks: remove_host.yml
+      loop: "{{ _kvm_net_stale_hosts }}"
+      loop_control:
+        loop_var: vm_host
+        label: "{{ vm_host.name }}"

@@ -1,0 +1,9 @@
+---
+# Template — not a real vault. Copy it and encrypt:
+#
+#   cp inventory/group_vars/hypervisors/vault.yml.example \
+#      inventory/group_vars/hypervisors/vault.yml
+#   $EDITOR inventory/group_vars/hypervisors/vault.yml   # set the real password
+#   ansible-vault encrypt inventory/group_vars/hypervisors/vault.yml \
+#     --vault-password-file .vault_password_file
+kvm_cloud_user_password: "CHANGE-ME"

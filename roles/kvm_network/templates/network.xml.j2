@@ -1,0 +1,81 @@
+{# Receives 'net' (one kvm_networks entry) and reads 'kvm_vms' from global scope.
+   DHCP reservations need an explicit vm.mac; DNS entries don't. #}
+{% set explicit_hosts = net.hosts | default([]) %}
+{% set dhcp_hosts = explicit_hosts | selectattr('mac', 'defined') | list %}
+{% set dns_hosts = explicit_hosts | list %}
+{% for vm in kvm_vms | default([]) if vm.network is defined and vm.network == net.name and (vm.state | default('present')) != 'absent' and vm.ip is defined %}
+{% set _ = dns_hosts.append({'name': vm.name, 'ip': vm.ip}) %}
+{% if vm.mac is defined %}
+{% set _ = dhcp_hosts.append({'name': vm.name, 'mac': vm.mac, 'ip': vm.ip}) %}
+{% endif %}
+{% endfor %}
+{% set dns_aliases = net.dns_aliases | default([]) %}
+{% set dnsmasq_options = net.dnsmasq_options | default([]) %}
+{% set mode = net.mode | default('nat') %}
+{% set _netmask_by_prefix = {
+  '1': '128.0.0.0', '2': '192.0.0.0', '3': '224.0.0.0', '4': '240.0.0.0',
+  '5': '248.0.0.0', '6': '252.0.0.0', '7': '254.0.0.0', '8': '255.0.0.0',
+  '9': '255.128.0.0', '10': '255.192.0.0', '11': '255.224.0.0', '12': '255.240.0.0',
+  '13': '255.248.0.0', '14': '255.252.0.0', '15': '255.254.0.0', '16': '255.255.0.0',
+  '17': '255.255.128.0', '18': '255.255.192.0', '19': '255.255.224.0', '20': '255.255.240.0',
+  '21': '255.255.248.0', '22': '255.255.252.0', '23': '255.255.254.0', '24': '255.255.255.0',
+  '25': '255.255.255.128', '26': '255.255.255.192', '27': '255.255.255.224',
+  '28': '255.255.255.240', '29': '255.255.255.248', '30': '255.255.255.252',
+} %}
+{% set _prefix = net.cidr.split('/')[1] %}
+{% set netmask = net.netmask | default(_netmask_by_prefix[_prefix]) %}
+<network{% if dnsmasq_options %} xmlns:dnsmasq="http://libvirt.org/schemas/network/dnsmasq/1.0"{% endif %}>
+  <name>{{ net.name }}</name>
+{% if mode != 'isolated' %}
+  <forward mode="{{ mode }}"/>
+{% endif %}
+{% if net.bridge is defined %}
+  <bridge name="{{ net.bridge }}" stp="on" delay="0"/>
+{% else %}
+  {# No 'name': libvirt picks a free bridge (virbr0, virbr1, ...) — avoids
+     the 15-character Linux interface name limit for long net.name values. #}
+  <bridge stp="on" delay="0"/>
+{% endif %}
+{% if net.domain is defined %}
+  <domain name="{{ net.domain }}" localOnly="{{ 'yes' if (net.local_only | default(true)) else 'no' }}"/>
+{% endif %}
+{% if (net.dns_forwarders | default([])) or dns_hosts or dns_aliases %}
+  <dns>
+{% for fwd in net.dns_forwarders | default([]) %}
+    <forwarder addr="{{ fwd }}"/>
+{% endfor %}
+{% for h in dns_hosts %}
+    <host ip="{{ h.ip }}">
+      <hostname>{{ h.name }}</hostname>
+{% if net.domain is defined %}
+      <hostname>{{ h.name }}.{{ net.domain }}</hostname>
+{% endif %}
+    </host>
+{% endfor %}
+{% for a in dns_aliases %}
+    <host ip="{{ a.ip }}">
+{% for hn in a.hostnames %}
+      <hostname>{{ hn }}</hostname>
+{% endfor %}
+    </host>
+{% endfor %}
+  </dns>
+{% endif %}
+{% if dnsmasq_options %}
+  <dnsmasq:options>
+{% for opt in dnsmasq_options %}
+    <dnsmasq:option value="{{ opt }}"/>
+{% endfor %}
+  </dnsmasq:options>
+{% endif %}
+  <ip address="{{ net.gateway }}" netmask="{{ netmask }}">
+{% if net.dhcp_start is defined and net.dhcp_end is defined %}
+    <dhcp>
+      <range start="{{ net.dhcp_start }}" end="{{ net.dhcp_end }}"/>
+{% for h in dhcp_hosts %}
+      <host mac="{{ h.mac }}" name="{{ h.name }}" ip="{{ h.ip }}"/>
+{% endfor %}
+    </dhcp>
+{% endif %}
+  </ip>
+</network>

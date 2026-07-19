@@ -1,0 +1,35 @@
+---
+# Declarative fleet state for hypervisor "hypervisor1". Everything with
+# state: present is created/kept here; state: absent is destroyed. No other
+# file needs to change to add or remove a network, image, or VM.
+
+kvm_hypervisor_bootstrap: true
+
+kvm_networks:
+  - name: lab
+    state: present
+    mode: nat
+    cidr: 192.168.100.0/24
+    gateway: 192.168.100.1
+    dhcp_start: 192.168.100.100
+    dhcp_end: 192.168.100.200
+    domain: example.internal
+    dns_forwarders:
+      - 1.1.1.1
+    autostart: true
+
+kvm_images:
+  - name: rocky9
+    state: present
+
+kvm_vms:
+  - name: web01
+    state: present
+    autostart: true
+    image: rocky9
+    network: lab
+    ip: 192.168.100.10
+    memory_mb: 2048
+    vcpus: 2
+    disks:
+      - 20G

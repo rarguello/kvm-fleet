@@ -1,0 +1,42 @@
+---
+- name: "{{ vm.name }}: read current dominfo"
+  ansible.builtin.command: "virsh dominfo {{ vm.name }}"
+  register: _kvm_vm_current_dominfo
+  changed_when: false
+
+- name: "{{ vm.name }}: parse current memory/vcpus"
+  ansible.builtin.set_fact:
+    _kvm_vm_current_mem_kib: >-
+      {{ (_kvm_vm_current_dominfo.stdout | regex_search('Max memory:\s+(\d+)', '\1'))[0] | int }}
+    _kvm_vm_current_vcpus: >-
+      {{ (_kvm_vm_current_dominfo.stdout | regex_search('CPU\(s\):\s+(\d+)', '\1'))[0] | int }}
+
+- name: "{{ vm.name }}: warn on spec drift (no live resize)"
+  ansible.builtin.debug:
+    msg: >-
+      {{ vm.name }} is defined with {{ _kvm_vm_current_mem_kib // 1024 }}MB /
+      {{ _kvm_vm_current_vcpus }} vCPU, but kvm_vms now declares
+      {{ vm.memory_mb | default(kvm_vm_default_memory_mb) }}MB /
+      {{ vm.vcpus | default(kvm_vm_default_vcpus) }} vCPU. This role does not
+      resize existing VMs. Set state: absent then present to recreate, or
+      resize manually with virsh.
+  when: >-
+    (_kvm_vm_current_mem_kib != (vm.memory_mb | default(kvm_vm_default_memory_mb) | int) * 1024)
+    or (_kvm_vm_current_vcpus != (vm.vcpus | default(kvm_vm_default_vcpus) | int))
+
+- name: "{{ vm.name }}: set autostart"
+  community.libvirt.virt:
+    name: "{{ vm.name }}"
+    autostart: "{{ vm.autostart | default(false) }}"
+
+- name: "{{ vm.name }}: ensure running"
+  community.libvirt.virt:
+    name: "{{ vm.name }}"
+    state: running
+  when: (vm.state | default('present')) == 'present'
+
+- name: "{{ vm.name }}: ensure stopped"
+  community.libvirt.virt:
+    name: "{{ vm.name }}"
+    state: shutdown
+  when: (vm.state | default('present')) == 'stopped'

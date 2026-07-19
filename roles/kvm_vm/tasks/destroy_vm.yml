@@ -1,0 +1,40 @@
+---
+- name: "{{ vm.name }}: list disk files before destroying"
+  ansible.builtin.command: "virsh domblklist {{ vm.name }} --details"
+  register: _kvm_vm_domblklist
+  changed_when: false
+
+- name: "{{ vm.name }}: extract file-backed disk paths"
+  ansible.builtin.set_fact:
+    _kvm_vm_disk_files: >-
+      {{ _kvm_vm_domblklist.stdout_lines
+         | select('match', '^file\s+disk\s+')
+         | map('regex_replace', '^file\s+disk\s+\S+\s+(\S+)\s*$', '\1')
+         | list }}
+
+- name: "{{ vm.name }}: check if running"
+  ansible.builtin.command: "virsh domstate {{ vm.name }}"
+  register: _kvm_vm_domstate
+  changed_when: false
+
+- name: "{{ vm.name }}: force off"
+  ansible.builtin.command: "virsh destroy {{ vm.name }}"
+  when: _kvm_vm_domstate.stdout | trim == 'running'
+  changed_when: true
+
+- name: "{{ vm.name }}: undefine"
+  ansible.builtin.command: "virsh undefine {{ vm.name }} --nvram"
+  failed_when: false
+  changed_when: _kvm_vm_undefine.rc == 0
+  register: _kvm_vm_undefine
+
+- name: "{{ vm.name }}: undefine (retry without --nvram)"
+  ansible.builtin.command: "virsh undefine {{ vm.name }}"
+  when: _kvm_vm_undefine.rc != 0
+  changed_when: true
+
+- name: "{{ vm.name }}: remove disk files"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ _kvm_vm_disk_files }}"

@@ -1,0 +1,14 @@
+---
+kvm_networks: []
+kvm_vms: []
+
+# Network names (from kvm_networks) you authorize to be recreated from
+# scratch when their base definition (mode/cidr/dhcp range/domain/
+# dns_aliases/dnsmasq_options) changed from what's already on the
+# hypervisor. Recreating means net-destroy + net-undefine + net-define +
+# net-start, which disrupts connectivity for any VM already on that
+# network — opt-in only, this role never does it on its own.
+#
+# Per-VM DHCP/DNS changes (adding/removing a VM on a network that already
+# exists) ARE reconciled live without needing this — see README.
+kvm_network_recreate: []

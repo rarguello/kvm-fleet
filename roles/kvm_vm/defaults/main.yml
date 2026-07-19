@@ -1,0 +1,15 @@
+---
+kvm_image_dir: /var/lib/libvirt/images
+kvm_known_images: {}
+kvm_images: []
+kvm_networks: []
+kvm_vms: []
+
+kvm_vm_default_memory_mb: 2048
+kvm_vm_default_vcpus: 2
+kvm_vm_default_disk_size: 20G
+kvm_vm_default_device: eth0
+kvm_vm_default_cpu_mode: host-passthrough
+
+kvm_cloud_user: cloud-user
+kvm_ssh_public_key_file: "~/.ssh/id_ed25519.pub"

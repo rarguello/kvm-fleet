@@ -1,0 +1,13 @@
+---
+skip_list:
+  # Task names are prefixed with the per-item identifier (e.g. "{{ vm.name
+  # }}: create") for readable --list-tasks/verbose output across loops and
+  # include_tasks — the Jinja expression at the start is intentional, not
+  # an oversight.
+  - name[template]
+  # kvm_image_dir, kvm_images, kvm_networks, kvm_vms, kvm_cloud_user and
+  # kvm_ssh_public_key_file are deliberately shared across all four roles
+  # (that's how kvm_network finds out which VMs reference it, how kvm_vm
+  # resolves its image/network, etc.) — prefixing them per-role would
+  # break that sharing, which is the whole point of the design.
+  - var-naming[no-role-prefix]

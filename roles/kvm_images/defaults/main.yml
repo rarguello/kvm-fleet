@@ -1,0 +1,4 @@
+---
+kvm_image_dir: /var/lib/libvirt/images
+kvm_known_images: {}
+kvm_images: []

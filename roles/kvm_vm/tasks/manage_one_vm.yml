@@ -1,0 +1,69 @@
+---
+- name: "{{ vm.name }}: check if already defined"
+  ansible.builtin.command: "virsh dominfo {{ vm.name }}"
+  register: _kvm_vm_dominfo
+  changed_when: false
+  failed_when: false
+
+- name: "{{ vm.name }}: destroy"
+  ansible.builtin.include_tasks: destroy_vm.yml
+  when:
+    - (vm.state | default('present')) == 'absent'
+    - _kvm_vm_dominfo.rc == 0
+
+- name: "{{ vm.name }}: resolve image, mac and network"
+  when: (vm.state | default('present')) != 'absent'
+  block:
+    - name: "{{ vm.name }}: find its entry in kvm_images"
+      ansible.builtin.set_fact:
+        _kvm_vm_image_matches: "{{ kvm_images | selectattr('name', 'equalto', vm.image) | list }}"
+
+    - name: "{{ vm.name }}: fail if the image is not declared in kvm_images"
+      ansible.builtin.fail:
+        msg: "kvm_vms['{{ vm.name }}'].image='{{ vm.image }}' is not declared in kvm_images."
+      when: _kvm_vm_image_matches | length == 0
+
+    - name: "{{ vm.name }}: resolve image spec"
+      ansible.builtin.set_fact:
+        _kvm_vm_image: "{{ (kvm_known_images[vm.image] | default({})) | combine(_kvm_vm_image_matches[0]) }}"
+
+    - name: "{{ vm.name }}: resolve base image filename (as downloaded, mirror naming)"
+      ansible.builtin.set_fact:
+        _kvm_vm_image_filename: "{{ _kvm_vm_image.url | basename }}"
+
+    - name: "{{ vm.name }}: fail if mac is set but not in the 52:54:00 QEMU/KVM range"
+      ansible.builtin.fail:
+        msg: "kvm_vms['{{ vm.name }}'].mac='{{ vm.mac }}' should start with 52:54 (the QEMU/KVM locally-administered OUI)."
+      when:
+        - vm.mac is defined
+        - not (vm.mac | lower).startswith('52:54')
+
+    - name: "{{ vm.name }}: find its network in kvm_networks"
+      ansible.builtin.set_fact:
+        _kvm_vm_network_matches: "{{ kvm_networks | selectattr('name', 'equalto', vm.network) | list }}"
+
+    - name: "{{ vm.name }}: fail if the network is not declared in kvm_networks"
+      ansible.builtin.fail:
+        msg: "kvm_vms['{{ vm.name }}'].network='{{ vm.network }}' is not declared in kvm_networks."
+      when: _kvm_vm_network_matches | length == 0
+
+    - name: "{{ vm.name }}: resolve network spec"
+      ansible.builtin.set_fact:
+        _kvm_vm_network: "{{ _kvm_vm_network_matches[0] }}"
+
+    - name: "{{ vm.name }}: full hostname"
+      ansible.builtin.set_fact:
+        _kvm_vm_hostname: >-
+          {{ vm.name ~ ('.' ~ _kvm_vm_network.domain if _kvm_vm_network.domain | default('') else '') }}
+
+- name: "{{ vm.name }}: create"
+  ansible.builtin.include_tasks: create_vm.yml
+  when:
+    - (vm.state | default('present')) != 'absent'
+    - _kvm_vm_dominfo.rc != 0
+
+- name: "{{ vm.name }}: already exists — reconcile state/autostart"
+  ansible.builtin.include_tasks: reconcile_vm.yml
+  when:
+    - (vm.state | default('present')) != 'absent'
+    - _kvm_vm_dominfo.rc == 0

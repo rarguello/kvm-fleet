@@ -1,0 +1,32 @@
+---
+# Reconciles the declarative fleet state (host_vars/<hypervisor>.yml)
+# against every hypervisor in the 'hypervisors' inventory group.
+#
+# Run everything:
+#   ansible-playbook playbooks/site.yml
+#
+# Run just one concern (day-to-day VM changes don't need to touch the
+# hypervisor bootstrap or image catalog at all):
+#   ansible-playbook playbooks/site.yml --tags vms
+#   ansible-playbook playbooks/site.yml --tags networks
+#   ansible-playbook playbooks/site.yml --tags images
+#   ansible-playbook playbooks/site.yml --tags hypervisor
+
+- name: Manage the KVM hypervisor fleet
+  hosts: hypervisors
+  gather_facts: false
+  become: true
+
+  roles:
+    - role: kvm_hypervisor
+      tags: [hypervisor]
+      when: kvm_hypervisor_bootstrap | default(true)
+
+    - role: kvm_images
+      tags: [images]
+
+    - role: kvm_network
+      tags: [networks]
+
+    - role: kvm_vm
+      tags: [vms]

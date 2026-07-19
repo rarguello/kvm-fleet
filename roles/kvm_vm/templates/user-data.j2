@@ -1,0 +1,19 @@
+#cloud-config
+ssh_pwauth: {{ 'true' if (vm.ssh_pwauth | default(true)) else 'false' }}
+users:
+  - default
+ssh_authorized_keys:
+  - {{ lookup('file', vm.ssh_public_key_file | default(kvm_ssh_public_key_file)) }}
+{% set _pw = vm.cloud_user_password | default(kvm_cloud_user_password | default('')) %}
+{% if _pw %}
+chpasswd:
+  list: |
+     {{ vm.cloud_user | default(_kvm_vm_image.cloud_user | default(kvm_cloud_user)) }}:{{ _pw }}
+  expire: false
+{% endif %}
+{% if (vm.swap_size_gb | default(0) | int) > 0 %}
+swap:
+  filename: /swapfile
+  size: {{ (vm.swap_size_gb | int) * 1073741824 }}
+  maxsize: {{ (vm.swap_size_gb | int) * 1073741824 }}
+{% endif %}

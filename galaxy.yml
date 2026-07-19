@@ -1,0 +1,25 @@
+---
+namespace: rarguello
+name: kvm_fleet
+version: 0.1.0
+readme: README.md
+authors:
+  - Ricardo Arguello
+description: Declarative management of a KVM/libvirt hypervisor fleet — hypervisors, networks, base images, and VMs as data.
+license:
+  - Apache-2.0
+dependencies:
+  community.libvirt: ">=1.2.0"
+tags:
+  - kvm
+  - libvirt
+  - virtualization
+  - infrastructure
+  - networking
+repository: https://github.com/rarguello/kvm-fleet
+issues: https://github.com/rarguello/kvm-fleet/issues
+build_ignore:
+  - inventory/hosts.local.ini
+  - inventory/host_vars/kvm-lab.yml
+  - inventory/group_vars/hypervisors/vault.yml
+  - .vault_password_file

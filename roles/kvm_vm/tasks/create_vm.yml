@@ -1,0 +1,124 @@
+---
+- name: "{{ vm.name }}: check base image exists"
+  ansible.builtin.stat:
+    path: "{{ kvm_image_dir }}/{{ _kvm_vm_image_filename }}"
+  register: _kvm_vm_base_image
+
+- name: "{{ vm.name }}: fail if base image is missing"
+  ansible.builtin.fail:
+    msg: "Base image not found: {{ kvm_image_dir }}/{{ _kvm_vm_image_filename }} (run the kvm_images role first)."
+  when: not _kvm_vm_base_image.stat.exists
+
+- name: "{{ vm.name }}: resolve disk sizes"
+  ansible.builtin.set_fact:
+    _kvm_vm_disks: "{{ vm.disks | default([kvm_vm_default_disk_size]) }}"
+    _kvm_vm_os_disk: "{{ kvm_image_dir }}/{{ vm.name }}.qcow2"
+    _kvm_vm_workdir: "/tmp/{{ vm.name }}-cloud-init"
+
+- name: "{{ vm.name }}: create OS disk (overlay on the base image)"
+  ansible.builtin.command: >-
+    qemu-img create -f qcow2 -F qcow2
+    -b {{ kvm_image_dir }}/{{ vm.image }}.qcow2
+    {{ _kvm_vm_os_disk }}
+    {{ _kvm_vm_disks[0] }}
+  args:
+    creates: "{{ _kvm_vm_os_disk }}"
+
+- name: "{{ vm.name }}: create extra data disks"
+  ansible.builtin.command: >-
+    qemu-img create -f qcow2
+    {{ kvm_image_dir }}/{{ vm.name }}-disk{{ (idx + 2) | string }}.qcow2
+    {{ item }}
+  args:
+    creates: "{{ kvm_image_dir }}/{{ vm.name }}-disk{{ (idx + 2) | string }}.qcow2"
+  loop: "{{ _kvm_vm_disks[1:] }}"
+  loop_control:
+    index_var: idx
+
+- name: "{{ vm.name }}: build --disk arguments"
+  ansible.builtin.set_fact:
+    _kvm_vm_disk_args: ["--disk=path={{ _kvm_vm_os_disk }},format=qcow2,bus=virtio"]
+
+- name: "{{ vm.name }}: append data disks to --disk arguments"
+  ansible.builtin.set_fact:
+    _kvm_vm_disk_args: >-
+      {{ _kvm_vm_disk_args
+         + ['--disk=path=' ~ kvm_image_dir ~ '/' ~ vm.name ~ '-disk' ~ ((idx + 2) | string) ~ '.qcow2,format=qcow2,bus=virtio'] }}
+  loop: "{{ _kvm_vm_disks[1:] }}"
+  loop_control:
+    index_var: idx
+
+- name: "{{ vm.name }}: create cloud-init workdir"
+  ansible.builtin.file:
+    path: "{{ _kvm_vm_workdir }}"
+    state: directory
+    mode: "0700"
+
+- name: "{{ vm.name }}: render cloud-init meta-data"
+  ansible.builtin.template:
+    src: meta-data.j2
+    dest: "{{ _kvm_vm_workdir }}/meta-data"
+    mode: "0600"
+
+- name: "{{ vm.name }}: render cloud-init user-data"
+  ansible.builtin.template:
+    src: user-data.j2
+    dest: "{{ _kvm_vm_workdir }}/user-data"
+    mode: "0600"
+
+- name: "{{ vm.name }}: render cloud-init network-config"
+  ansible.builtin.template:
+    src: network-config.j2
+    dest: "{{ _kvm_vm_workdir }}/network-config"
+    mode: "0600"
+
+- name: "{{ vm.name }}: build virt-install argv"
+  ansible.builtin.set_fact:
+    _kvm_vm_argv:
+      - virt-install
+      - "--name={{ vm.name }}"
+      - "--memory={{ vm.memory_mb | default(kvm_vm_default_memory_mb) }}"
+      - "--vcpus={{ vm.vcpus | default(kvm_vm_default_vcpus) }}"
+      - "--cpu={{ vm.cpu_mode | default(kvm_vm_default_cpu_mode) }}"
+
+- name: "{{ vm.name }}: append disks to virt-install argv"
+  ansible.builtin.set_fact:
+    _kvm_vm_argv: "{{ _kvm_vm_argv + _kvm_vm_disk_args }}"
+
+- name: "{{ vm.name }}: complete virt-install argv"
+  ansible.builtin.set_fact:
+    _kvm_vm_argv: >-
+      {{ _kvm_vm_argv + [
+        '--os-variant=' ~ (_kvm_vm_image.os_variant | default('generic')),
+        '--import',
+        '--network=network=' ~ vm.network ~ ',model=virtio' ~ (',mac=' ~ vm.mac if vm.mac is defined else ''),
+        '--graphics=none',
+        '--console=pty,target_type=serial',
+        '--virt-type=kvm',
+        '--noautoconsole',
+        '--cloud-init=disable=on'
+          ~ ',meta-data=' ~ _kvm_vm_workdir ~ '/meta-data'
+          ~ ',user-data=' ~ _kvm_vm_workdir ~ '/user-data'
+          ~ ',network-config=' ~ _kvm_vm_workdir ~ '/network-config',
+      ] }}
+
+- name: "{{ vm.name }}: create the VM with virt-install"
+  ansible.builtin.command:
+    argv: "{{ _kvm_vm_argv }}"
+  changed_when: true
+
+- name: "{{ vm.name }}: remove cloud-init workdir"
+  ansible.builtin.file:
+    path: "{{ _kvm_vm_workdir }}"
+    state: absent
+
+- name: "{{ vm.name }}: set autostart"
+  community.libvirt.virt:
+    name: "{{ vm.name }}"
+    autostart: "{{ vm.autostart | default(false) }}"
+
+- name: "{{ vm.name }}: power off if declared stopped"
+  community.libvirt.virt:
+    name: "{{ vm.name }}"
+    state: shutdown
+  when: (vm.state | default('present')) == 'stopped'

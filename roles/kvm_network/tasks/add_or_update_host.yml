@@ -1,0 +1,101 @@
+---
+# Adds or updates ONE DHCP reservation + DNS entry on a network that already
+# exists, live (virsh net-update --live --config), without restarting it.
+# Included in a loop from manage_one_network.yml with vm_host={name,ip,mac?}.
+# DHCP requires vm_host.mac; DNS works with just name+ip.
+
+- name: "{{ net.name }}/{{ vm_host.name }}: check current DHCP reservation"
+  ansible.builtin.set_fact:
+    _existing_dhcp: >-
+      {{ _kvm_net_current_xml.stdout
+         | regex_search("<host mac='([0-9a-fA-F:]+)' name='" ~ (vm_host.name | regex_escape) ~ "' ip='([0-9.]+)'/>", '\1', '\2') }}
+  when: vm_host.mac is defined
+
+- name: "{{ net.name }}/{{ vm_host.name }}: add DHCP reservation (missing)"
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - net-update
+      - "{{ net.name }}"
+      - add-last
+      - ip-dhcp-host
+      - --xml
+      - "<host mac='{{ vm_host.mac }}' name='{{ vm_host.name }}' ip='{{ vm_host.ip }}'/>"
+      - --live
+      - --config
+  when:
+    - vm_host.mac is defined
+    - _existing_dhcp is none
+  changed_when: true
+
+- name: "{{ net.name }}/{{ vm_host.name }}: update DHCP reservation (mac/ip changed)"
+  when:
+    - vm_host.mac is defined
+    - _existing_dhcp is not none
+    - (_existing_dhcp[0] != (vm_host.mac | lower)) or (_existing_dhcp[1] != vm_host.ip)
+  block:
+    - name: "{{ net.name }}/{{ vm_host.name }}: remove old DHCP reservation"
+      ansible.builtin.command:
+        argv:
+          - virsh
+          - net-update
+          - "{{ net.name }}"
+          - delete
+          - ip-dhcp-host
+          - --xml
+          - "<host mac='{{ _existing_dhcp[0] }}' name='{{ vm_host.name }}' ip='{{ _existing_dhcp[1] }}'/>"
+          - --live
+          - --config
+      changed_when: true
+
+    - name: "{{ net.name }}/{{ vm_host.name }}: add new DHCP reservation"
+      ansible.builtin.command:
+        argv:
+          - virsh
+          - net-update
+          - "{{ net.name }}"
+          - add-last
+          - ip-dhcp-host
+          - --xml
+          - "<host mac='{{ vm_host.mac }}' name='{{ vm_host.name }}' ip='{{ vm_host.ip }}'/>"
+          - --live
+          - --config
+      changed_when: true
+
+- name: "{{ net.name }}/{{ vm_host.name }}: check current DNS entry"
+  ansible.builtin.set_fact:
+    _existing_dns: >-
+      {{ _kvm_net_current_xml.stdout
+         | regex_search("<host ip='([0-9.]+)'>\s*<hostname>" ~ (vm_host.name | regex_escape) ~ "</hostname>", '\1') }}
+
+- name: "{{ net.name }}/{{ vm_host.name }}: add DNS entry (skipped if already matching)"
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - net-update
+      - "{{ net.name }}"
+      - add-last
+      - dns-host
+      - --xml
+      - >-
+        <host ip='{{ vm_host.ip }}'><hostname>{{ vm_host.name }}</hostname>
+        {%- if net.domain is defined %}<hostname>{{ vm_host.name }}.{{ net.domain }}</hostname>{% endif -%}
+        </host>
+      - --live
+      - --config
+  register: _dns_update
+  when: (_existing_dns is none) or (_existing_dns[0] != vm_host.ip)
+  failed_when: false
+  changed_when: _dns_update.rc == 0
+
+- name: "{{ net.name }}/{{ vm_host.name }}: warn if the DNS entry could not be updated"
+  ansible.builtin.debug:
+    msg: >-
+      Could not add the DNS entry for '{{ vm_host.name }}' on '{{ net.name }}'
+      (likely already exists with a different IP: {{ _dns_update.stderr | default('') }}).
+      Add '{{ net.name }}' to kvm_network_recreate, or fix it manually with
+      'virsh net-update {{ net.name }} delete dns-host ...'.
+  when:
+    - _dns_update is defined
+    - _dns_update.rc is defined
+    - _dns_update.rc != 0

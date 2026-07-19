@@ -1,0 +1,52 @@
+---
+# Removes the DHCP reservation + DNS entry for a VM that is no longer
+# declared (state: absent) on a network that still exists. Included in a
+# loop from manage_one_network.yml with vm_host={name}.
+
+- name: "{{ net.name }}/{{ vm_host.name }}: check for a DHCP reservation"
+  ansible.builtin.set_fact:
+    _stale_dhcp: >-
+      {{ _kvm_net_current_xml.stdout
+         | regex_search("<host mac='([0-9a-fA-F:]+)' name='" ~ (vm_host.name | regex_escape) ~ "' ip='([0-9.]+)'/>", '\1', '\2') }}
+
+- name: "{{ net.name }}/{{ vm_host.name }}: remove DHCP reservation"
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - net-update
+      - "{{ net.name }}"
+      - delete
+      - ip-dhcp-host
+      - --xml
+      - "<host mac='{{ _stale_dhcp[0] }}' name='{{ vm_host.name }}' ip='{{ _stale_dhcp[1] }}'/>"
+      - --live
+      - --config
+  when: _stale_dhcp is not none
+  changed_when: true
+
+- name: "{{ net.name }}/{{ vm_host.name }}: check for a DNS entry"
+  ansible.builtin.set_fact:
+    _stale_dns: >-
+      {{ _kvm_net_current_xml.stdout
+         | regex_search("<host ip='([0-9.]+)'>\s*<hostname>" ~ (vm_host.name | regex_escape) ~ "</hostname>", '\1') }}
+
+# Rebuild the same <host> block add_or_update_host.yml would have written
+# (1 or 2 <hostname> entries) instead of re-parsing the existing XML.
+- name: "{{ net.name }}/{{ vm_host.name }}: remove DNS entry (best-effort)"
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - net-update
+      - "{{ net.name }}"
+      - delete
+      - dns-host
+      - --xml
+      - >-
+        <host ip='{{ _stale_dns[0] }}'><hostname>{{ vm_host.name }}</hostname>
+        {%- if net.domain is defined %}<hostname>{{ vm_host.name }}.{{ net.domain }}</hostname>{% endif -%}
+        </host>
+      - --live
+      - --config
+  when: _stale_dns is not none
+  failed_when: false
+  changed_when: true

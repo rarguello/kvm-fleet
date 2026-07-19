@@ -1,0 +1,32 @@
+# Vault password — never commit
+.vault_password_file
+
+# Real fleet inventory (generic examples in inventory/ are committed instead)
+inventory/hosts.local.ini
+inventory/host_vars/kvm-lab.yml
+inventory/group_vars/hypervisors/vault.yml
+
+# Collections installed locally (install via requirements.yml)
+collections/ansible_collections/
+.ansible/
+
+# Built collection tarballs
+*.tar.gz
+
+# Ansible retry files
+*.retry
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
+venv/
+.venv/
+
+# Editor
+.vscode/
+.idea/
+.claude/
+*.swp
+*~

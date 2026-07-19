@@ -1,0 +1,11 @@
+network:
+  version: 1
+  config:
+    - type: physical
+      name: {{ vm.device | default(_kvm_vm_image.device | default(kvm_vm_default_device)) }}
+      subnets:
+        - type: static
+          address: {{ vm.ip }}/{{ _kvm_vm_network.cidr.split('/')[1] }}
+          gateway: {{ _kvm_vm_network.gateway }}
+          dns_nameservers:
+            - {{ _kvm_vm_network.gateway }}
