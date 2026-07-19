@@ -29,7 +29,7 @@
 
     - name: "{{ vm.name }}: resolve base image filename (as downloaded, mirror naming)"
       ansible.builtin.set_fact:
-        _kvm_vm_image_filename: "{{ _kvm_vm_image.url | basename }}"
+        _kvm_vm_image_filename: "{{ _kvm_vm_image.filename | default(_kvm_vm_image.url | default('') | basename) }}"
 
     - name: "{{ vm.name }}: fail if mac is set but not in the 52:54:00 QEMU/KVM range"
       ansible.builtin.fail:
