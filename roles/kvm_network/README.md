@@ -26,7 +26,8 @@ kvm_networks:
     dhcp_start: 192.168.100.100
     dhcp_end: 192.168.100.200
     domain: example.internal   # also used to build each VM's FQDN
-    dns_forwarders: [1.1.1.1]
+    dns_forwarders: [1.1.1.1]  # omit to fall back to the hypervisor's own
+                                  # /etc/resolv.conf (verified live)
     autostart: true
     bridge: virbr-lab           # optional; omit to let libvirt pick one
                                   # (avoids the 15-char Linux ifname limit)

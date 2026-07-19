@@ -1,9 +1,13 @@
 ---
-# Template — not a real vault. Copy it and encrypt:
+# Template — not a real vault. There's no fleet-wide default password:
+# name one var per VM here, then reference it explicitly from that VM's
+# kvm_vms entry (cloud_user_password: "{{ web01_cloud_user_password }}").
+# For a single VM, ansible-vault encrypt_string is usually simpler — see
+# roles/kvm_vm/README.md.
 #
 #   cp inventory/group_vars/hypervisors/vault.yml.example \
 #      inventory/group_vars/hypervisors/vault.yml
-#   $EDITOR inventory/group_vars/hypervisors/vault.yml   # set the real password
+#   $EDITOR inventory/group_vars/hypervisors/vault.yml
 #   ansible-vault encrypt inventory/group_vars/hypervisors/vault.yml \
 #     --vault-password-file .vault_password_file
-kvm_cloud_user_password: "CHANGE-ME"
+web01_cloud_user_password: "CHANGE-ME"

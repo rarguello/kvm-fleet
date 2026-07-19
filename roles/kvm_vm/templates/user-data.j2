@@ -2,9 +2,11 @@
 ssh_pwauth: {{ 'true' if (vm.ssh_pwauth | default(true)) else 'false' }}
 users:
   - default
+{% if _kvm_vm_ssh_key | trim %}
 ssh_authorized_keys:
-  - {{ lookup('file', vm.ssh_public_key_file | default(kvm_ssh_public_key_file)) }}
-{% set _pw = vm.cloud_user_password | default(kvm_cloud_user_password | default('')) %}
+  - {{ _kvm_vm_ssh_key }}
+{% endif %}
+{% set _pw = vm.cloud_user_password | default('') %}
 {% if _pw %}
 chpasswd:
   list: |

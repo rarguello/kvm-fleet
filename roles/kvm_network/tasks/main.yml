@@ -1,30 +1,27 @@
 ---
-- name: Root-privileged tasks
-  become: true
-  block:
-    - name: Fail if a network's mode is not supported
-      ansible.builtin.fail:
-        msg: >-
-          kvm_networks['{{ item.name }}'].mode='{{ item.mode | default('nat') }}'
-          is not supported (use nat, route or isolated — NAT is recommended).
-      loop: "{{ kvm_networks }}"
-      loop_control:
-        label: "{{ item.name }}"
-      when: (item.mode | default('nat')) not in ['nat', 'route', 'isolated']
+- name: Fail if a network's mode is not supported
+  ansible.builtin.fail:
+    msg: >-
+      kvm_networks['{{ item.name }}'].mode='{{ item.mode | default('nat') }}'
+      is not supported (use nat, route or isolated — NAT is recommended).
+  loop: "{{ kvm_networks }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: (item.mode | default('nat')) not in ['nat', 'route', 'isolated']
 
-    - name: Fail if a present network is missing cidr/gateway
-      ansible.builtin.fail:
-        msg: "kvm_networks['{{ item.name }}'] needs 'cidr' and 'gateway' when state=present."
-      loop: "{{ kvm_networks }}"
-      loop_control:
-        label: "{{ item.name }}"
-      when:
-        - (item.state | default('present')) == 'present'
-        - (item.cidr is not defined) or (item.gateway is not defined)
+- name: Fail if a present network is missing cidr/gateway
+  ansible.builtin.fail:
+    msg: "kvm_networks['{{ item.name }}'] needs 'cidr' and 'gateway' when state=present."
+  loop: "{{ kvm_networks }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - (item.state | default('present')) == 'present'
+    - (item.cidr is not defined) or (item.gateway is not defined)
 
-    - name: Manage each declared network
-      ansible.builtin.include_tasks: manage_one_network.yml
-      loop: "{{ kvm_networks }}"
-      loop_control:
-        loop_var: net
-        label: "{{ net.name }}"
+- name: Manage each declared network
+  ansible.builtin.include_tasks: manage_one_network.yml
+  loop: "{{ kvm_networks }}"
+  loop_control:
+    loop_var: net
+    label: "{{ net.name }}"

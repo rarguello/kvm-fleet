@@ -10,10 +10,12 @@
 - name: "{{ net.name }}: check if already defined"
   ansible.builtin.command: "virsh net-info {{ net.name }}"
   register: _kvm_net_info
+  become: true
   changed_when: false
   failed_when: false
 
 - name: "{{ net.name }}: destroy (state=absent)"
+  become: true
   when: (net.state | default('present')) == 'absent'
   block:
     - name: "{{ net.name }}: deactivate"
@@ -29,6 +31,7 @@
       when: _kvm_net_info.rc == 0
 
 - name: "{{ net.name }}: create from scratch"
+  become: true
   when:
     - (net.state | default('present')) == 'present'
     - _kvm_net_info.rc != 0
@@ -46,6 +49,7 @@
         autostart: "{{ net.autostart | default(true) }}"
 
 - name: "{{ net.name }}: recreate from scratch (authorized in kvm_network_recreate)"
+  become: true
   when:
     - (net.state | default('present')) == 'present'
     - _kvm_net_info.rc == 0
@@ -81,6 +85,7 @@
         autostart: "{{ net.autostart | default(true) }}"
 
 - name: "{{ net.name }}: reconcile live (already existed, not recreating)"
+  become: true
   when:
     - (net.state | default('present')) == 'present'
     - _kvm_net_info.rc == 0

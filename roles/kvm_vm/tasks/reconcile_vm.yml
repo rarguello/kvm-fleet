@@ -2,6 +2,7 @@
 - name: "{{ vm.name }}: read current dominfo"
   ansible.builtin.command: "virsh dominfo {{ vm.name }}"
   register: _kvm_vm_current_dominfo
+  become: true
   changed_when: false
 
 - name: "{{ vm.name }}: parse current memory/vcpus"
@@ -28,15 +29,38 @@
   community.libvirt.virt:
     name: "{{ vm.name }}"
     autostart: "{{ vm.autostart | default(false) }}"
+  become: true
 
 - name: "{{ vm.name }}: ensure running"
   community.libvirt.virt:
     name: "{{ vm.name }}"
     state: running
+  become: true
   when: (vm.state | default('present')) == 'present'
 
 - name: "{{ vm.name }}: ensure stopped"
-  community.libvirt.virt:
-    name: "{{ vm.name }}"
-    state: shutdown
+  become: true
   when: (vm.state | default('present')) == 'stopped'
+  block:
+    - name: "{{ vm.name }}: request graceful shutdown"
+      community.libvirt.virt:
+        name: "{{ vm.name }}"
+        state: shutdown
+
+    # A graceful ACPI shutdown request can be lost if the guest isn't ready
+    # to receive it yet (e.g. still mid-boot) — community.libvirt.virt
+    # reports changed=true just for sending the request, not for the domain
+    # actually reaching shut-off. Wait for it, then force it if it doesn't.
+    - name: "{{ vm.name }}: wait for the domain to actually shut off"
+      ansible.builtin.command: "virsh domstate {{ vm.name }}"
+      register: _kvm_vm_shutdown_wait
+      changed_when: false
+      failed_when: false
+      until: _kvm_vm_shutdown_wait.stdout | trim == 'shut off'
+      retries: 24
+      delay: 5
+
+    - name: "{{ vm.name }}: force off (graceful shutdown didn't take)"
+      ansible.builtin.command: "virsh destroy {{ vm.name }}"
+      when: _kvm_vm_shutdown_wait.stdout | trim != 'shut off'
+      changed_when: true

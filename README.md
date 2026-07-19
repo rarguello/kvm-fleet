@@ -93,7 +93,6 @@ collections:
 ```yaml
 # your-repo/playbooks/site.yml
 - hosts: hypervisors
-  become: true
   collections:
     - rarguello.kvm_fleet
   roles:

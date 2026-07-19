@@ -1,20 +1,17 @@
 ---
-- name: Root-privileged tasks
-  become: true
-  block:
-    - name: Fail if a present VM is missing image, network or ip
-      ansible.builtin.fail:
-        msg: "kvm_vms['{{ item.name }}'] needs 'image', 'network' and 'ip' when state != absent."
-      loop: "{{ kvm_vms }}"
-      loop_control:
-        label: "{{ item.name }}"
-      when:
-        - (item.state | default('present')) != 'absent'
-        - (item.image is not defined) or (item.network is not defined) or (item.ip is not defined)
+- name: Fail if a present VM is missing image, network or ip
+  ansible.builtin.fail:
+    msg: "kvm_vms['{{ item.name }}'] needs 'image', 'network' and 'ip' when state != absent."
+  loop: "{{ kvm_vms }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - (item.state | default('present')) != 'absent'
+    - (item.image is not defined) or (item.network is not defined) or (item.ip is not defined)
 
-    - name: Manage each declared VM
-      ansible.builtin.include_tasks: manage_one_vm.yml
-      loop: "{{ kvm_vms }}"
-      loop_control:
-        loop_var: vm
-        label: "{{ vm.name }}"
+- name: Manage each declared VM
+  ansible.builtin.include_tasks: manage_one_vm.yml
+  loop: "{{ kvm_vms }}"
+  loop_control:
+    loop_var: vm
+    label: "{{ vm.name }}"
