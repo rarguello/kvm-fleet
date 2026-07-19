@@ -76,6 +76,31 @@ ansible-playbook playbooks/site.yml --tags vms
 
 Other tags: `hypervisor`, `images`, `networks`.
 
+## Using this from your own inventory repo
+
+The `inventory/` in this repo is a generic example only — your real fleet's inventory (real hostnames, IPs, vaulted secrets) belongs in a separate, private repo that consumes this collection:
+
+```yaml
+# your-repo/collections/requirements.yml
+collections:
+  - name: https://github.com/rarguello/kvm-fleet.git
+    type: git
+    version: main
+```
+
+```yaml
+# your-repo/playbooks/site.yml
+- hosts: hypervisors
+  become: true
+  collections:
+    - rarguello.kvm_fleet
+  roles:
+    - kvm_hypervisor
+    - kvm_images
+    - kvm_network
+    - kvm_vm
+```
+
 ## Roles
 
 Each role documents its own variables in full:
@@ -91,6 +116,7 @@ Each role documents its own variables in full:
 - **Network base-attribute changes require opt-in.** Changing an existing network's `mode`/`cidr`/`dhcp_start`/`dhcp_end`/`domain`/`dns_aliases`/`dnsmasq_options` after creation needs the network's name added to `kvm_network_recreate` — recreating a network briefly disrupts every VM on it, so it's never automatic. Per-VM DHCP/DNS reservations (adding/removing a VM) *are* reconciled live, no opt-in needed.
 - **Guest NIC device name.** `cloud-init` writes the static network config for a specific device name (`eth0` or `enp1s0` depending on the image). A mismatch silently falls back to DHCP. Verified defaults are documented in `kvm_known_images`; check with `ip -brief addr show` on first boot if a VM doesn't come up on its declared IP.
 - **RHEL images** require Red Hat portal authentication and can't be fetched by URL. Set `filename` instead of `url` on the `kvm_images` entry and copy the qcow2 into place by hand.
+- **Image-mode (bootc) hypervisors.** `dnf`/package management doesn't apply the usual way when packages are baked into the image. Set `kvm_hypervisor_manage_packages: false` — everything else (libvirt daemons, storage pool, networks, VMs) works normally.
 
 ## License
 
