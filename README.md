@@ -1,5 +1,7 @@
 # kvm-fleet
 
+[![CI](https://github.com/rarguello/kvm-fleet/actions/workflows/ci.yml/badge.svg)](https://github.com/rarguello/kvm-fleet/actions/workflows/ci.yml)
+
 Declarative management of a KVM/libvirt hypervisor fleet with Ansible. Hypervisors, networks, base images, and VMs are all data — lists with `state: present` or `state: absent` — reconciled by four focused roles.
 
 ## Concepts
@@ -119,6 +121,10 @@ Each role documents its own variables in full:
 - **Guest NIC device name.** `cloud-init` writes the static network config for a specific device name (`eth0` or `enp1s0` depending on the image). A mismatch silently falls back to DHCP. Verified defaults are documented in `kvm_known_images`; check with `ip -brief addr show` on first boot if a VM doesn't come up on its declared IP.
 - **RHEL images** require Red Hat portal authentication and can't be fetched by URL. Set `filename` instead of `url` on the `kvm_images` entry and copy the qcow2 into place by hand.
 - **Image-mode (bootc) hypervisors.** `dnf`/package management doesn't apply the usual way when packages are baked into the image. Set `kvm_hypervisor_manage_packages: false` — everything else (libvirt daemons, storage pool, networks, VMs) works normally.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). [CHANGELOG.md](CHANGELOG.md) tracks releases.
 
 ## License
 

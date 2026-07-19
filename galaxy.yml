@@ -23,3 +23,6 @@ build_ignore:
   - inventory/host_vars/kvm-lab.yml
   - inventory/group_vars/hypervisors/vault.yml
   - .vault_password_file
+  - .ansible
+  - .claude
+  - "*.tar.gz"
