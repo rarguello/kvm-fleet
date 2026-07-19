@@ -1,10 +1,13 @@
 # Provision a RHEL VM, then register it with Red Hat (subscription-manager
-# + Insights) using the redhat.rhel_system_roles.rhc role — verified live
-# against a real RHEL 9 guest and a real Red Hat account.
+# + Insights) using the fedora.linux_system_roles.rhc role — verified live
+# against a real RHEL 9 guest and a real Red Hat account. fedora.linux_system_roles
+# is the freely-installable upstream of redhat.rhel_system_roles (the
+# Red Hat-namespaced version requires an Automation Hub token); same role
+# content either way.
 #
 # Same add_host/ProxyJump bridge as configure-after-provision.yml. The rhc
 # role itself isn't part of this collection — install it separately:
-#   ansible-galaxy collection install redhat.rhel_system_roles
+#   ansible-galaxy collection install fedora.linux_system_roles
 ---
 - name: Provision the VM
   hosts: hypervisors
@@ -72,6 +75,6 @@
           3038313136353763340a336261363862396461383462623034356336623135633161393930643733
           3630
   roles:
-    - redhat.rhel_system_roles.rhc
+    - fedora.linux_system_roles.rhc
     # - your_freeipa_role
     # - your_satellite_installer_role

@@ -25,6 +25,9 @@ jobs:
       - name: Install community.libvirt
         run: ansible-galaxy collection install -r collections/requirements.yml
 
+      - name: Install collections referenced by examples/
+        run: ansible-galaxy collection install -r examples/requirements.yml
+
       - name: yamllint
         run: yamllint -c .yamllint.yml roles/ playbooks/ inventory/ examples/ meta/ galaxy.yml
 

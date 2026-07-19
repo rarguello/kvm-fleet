@@ -1,0 +1,5 @@
+---
+# Extra collections referenced by examples/ (not a dependency of kvm_fleet
+# itself — only needed if you run this particular example).
+collections:
+  - name: fedora.linux_system_roles
