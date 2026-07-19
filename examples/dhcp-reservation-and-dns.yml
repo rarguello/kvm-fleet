@@ -1,0 +1,36 @@
+# Two VMs on the same network, each with an explicit mac — verified live:
+# static DHCP lease (virsh net-dhcp-leases shows the declared ip, not a
+# random one from the pool) plus forward AND reverse DNS through the
+# network's own gateway (dig web01.lab.example.internal and dig -x both
+# resolve, from any host on this network, no configuration beyond this).
+---
+kvm_networks:
+  - name: lab
+    state: present
+    mode: nat
+    cidr: 192.168.100.0/24
+    gateway: 192.168.100.1
+    dhcp_start: 192.168.100.100
+    dhcp_end: 192.168.100.200
+    domain: lab.example.internal
+    autostart: true
+
+kvm_images:
+  - name: rocky9
+    state: present
+
+kvm_vms:
+  - name: web01
+    state: present
+    image: rocky9
+    network: lab
+    ip: 192.168.100.10
+    mac: "52:54:00:10:00:01"   # required for a DHCP reservation — see
+                                 # kvm_network/README.md, a VM without mac
+                                 # still gets DNS, just no fixed lease
+  - name: web02
+    state: present
+    image: rocky9
+    network: lab
+    ip: 192.168.100.11
+    mac: "52:54:00:10:00:02"

@@ -1,0 +1,79 @@
+# Provision a RHEL VM, then register it with Red Hat (subscription-manager
+# + Insights) using the redhat.rhel_system_roles.rhc role — verified live
+# against a real RHEL 9 guest and a real Red Hat account.
+#
+# Same add_host/ProxyJump bridge as configure-after-provision.yml. The rhc
+# role itself isn't part of this collection — install it separately:
+#   ansible-galaxy collection install redhat.rhel_system_roles
+---
+- name: Provision the VM
+  hosts: hypervisors
+  gather_facts: false
+  collections:
+    - rarguello.kvm_fleet
+  vars:
+    kvm_images:
+      - name: rhel9
+        filename: rhel-9.8-x86_64-kvm.qcow2   # copied there by hand, see kvm_images/README.md
+        os_variant: rhel9.8
+        device: eth0
+        state: present
+    kvm_networks:
+      - name: lab
+        state: present
+        mode: nat
+        cidr: 192.168.100.0/24
+        gateway: 192.168.100.1
+        dhcp_start: 192.168.100.100
+        dhcp_end: 192.168.100.200
+        domain: lab.example.internal
+        autostart: true
+    kvm_vms:
+      - name: idm01
+        state: present
+        image: rhel9
+        network: lab
+        ip: 192.168.100.20
+        mac: "52:54:00:20:00:01"
+        memory_mb: 2048
+        vcpus: 2
+        disks: ["50G"]
+  roles:
+    - kvm_hypervisor
+    - kvm_images
+    - kvm_network
+    - kvm_vm
+
+  tasks:
+    - name: Register it for the next play
+      ansible.builtin.add_host:
+        name: "{{ item.name }}"
+        groups: freshly_provisioned
+        ansible_host: "{{ item.ip }}"
+        ansible_user: "{{ item.cloud_user | default('cloud-user') }}"
+        ansible_ssh_common_args: >-
+          -o ProxyJump={{ hostvars[inventory_hostname].ansible_user }}@{{ hostvars[inventory_hostname].ansible_host }}
+      loop: "{{ kvm_vms | selectattr('state', 'ne', 'absent') | list }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+- name: Register with Red Hat, then hand off to your own IDM/Satellite role
+  hosts: freshly_provisioned
+  become: true
+  vars:
+    rhc_organization: "your-org-id"
+    rhc_auth:
+      login:
+        username: "your-rhsm-username"
+        # ansible-vault encrypt_string --stdin-name password <<< 'yourpassword'
+        password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          32373961303830366539333332333130383166373634326335306334323263336532373735306164
+          6631656563666537623738623833386433343837616238610a633863613262333032393764393565
+          63393063633633366533653734656563366565373234356332393138636365363163623434383636
+          3038313136353763340a336261363862396461383462623034356336623135633161393930643733
+          3630
+  roles:
+    - redhat.rhel_system_roles.rhc
+    # - your_freeipa_role
+    # - your_satellite_installer_role
