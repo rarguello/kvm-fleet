@@ -15,6 +15,24 @@
     _kvm_vm_os_disk: "{{ kvm_image_dir }}/{{ vm.name }}.qcow2"
     _kvm_vm_workdir: "/tmp/{{ vm.name }}-cloud-init"
 
+- name: "{{ vm.name }}: query base image virtual size"
+  ansible.builtin.command: "qemu-img info --output=json {{ kvm_image_dir }}/{{ _kvm_vm_image_filename }}"
+  register: _kvm_vm_base_image_info
+  changed_when: false
+
+# qemu-img create silently truncates an overlay smaller than its backing
+# file's virtual size — no error, no warning — which cuts off whatever
+# partition sits at the end (usually root) and leaves the guest unable to
+# boot. Fail loudly instead of creating a broken VM.
+- name: "{{ vm.name }}: fail if the OS disk is smaller than the base image"
+  ansible.builtin.fail:
+    msg: >-
+      kvm_vms['{{ vm.name }}'].disks[0]='{{ _kvm_vm_disks[0] }}' is smaller than
+      the base image's virtual size ({{ (_kvm_vm_base_image_info.stdout | from_json)['virtual-size'] }} bytes).
+      The OS disk must be at least as large as the base image, or the overlay
+      is silently truncated and the guest fails to boot.
+  when: (_kvm_vm_disks[0] | human_to_bytes) < ((_kvm_vm_base_image_info.stdout | from_json)['virtual-size'] | int)
+
 - name: "{{ vm.name }}: create OS disk (overlay on the base image)"
   ansible.builtin.command: >-
     qemu-img create -f qcow2 -F qcow2
