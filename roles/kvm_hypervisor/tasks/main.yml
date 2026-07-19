@@ -3,6 +3,7 @@
   ansible.builtin.package:
     name: "{{ kvm_hypervisor_packages }}"
     state: present
+  when: kvm_hypervisor_manage_packages
 
 - name: Cockpit + cockpit-machines (optional)
   when: kvm_hypervisor_install_cockpit
@@ -11,6 +12,7 @@
       ansible.builtin.package:
         name: "{{ kvm_hypervisor_cockpit_packages }}"
         state: present
+      when: kvm_hypervisor_manage_packages
 
     - name: Enable cockpit.socket
       ansible.builtin.systemd:

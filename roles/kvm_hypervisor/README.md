@@ -18,6 +18,10 @@ kvm_hypervisor_bootstrap: true
 kvm_image_dir: /var/lib/libvirt/images
 kvm_pool_name: images
 
+# Set false on image-mode/bootc hosts, where packages are already baked
+# into the image and dnf/package management doesn't apply.
+kvm_hypervisor_manage_packages: true
+
 kvm_hypervisor_packages:
   - qemu-kvm
   - libvirt
